@@ -12,7 +12,7 @@ class Socket {
     friend class ServerSocket;
 
 public:
-    Socket();
+    Socket() noexcept;
     ~Socket();
     Socket(Socket&& other) noexcept;
     Socket& operator=(Socket&& other) noexcept;

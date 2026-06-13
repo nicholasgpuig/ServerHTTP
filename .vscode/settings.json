@@ -1,0 +1,18 @@
+{
+    // Keep IntelliSense and search from scanning CMake's generated build output.
+    "files.exclude": {
+        "**/.git": true,
+        "out": true
+    },
+    "search.exclude": {
+        "out": true
+    },
+    "files.watcherExclude": {
+        "**/out/**": true
+    },
+    // C/C++ extension: don't index the build tree.
+    "C_Cpp.files.exclude": {
+        "**/out/**": true
+    },
+    "cmake.configureOnOpen": false
+}

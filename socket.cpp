@@ -8,6 +8,8 @@
 
 Socket::Socket(int fd) noexcept : fd_(fd) {}
 
+Socket::Socket() noexcept {}
+
 Socket::~Socket() {
 	if (fd_ != -1) {
 		close(fd_);
