@@ -19,7 +19,7 @@ bool iequals(std::string_view a, std::string_view b) {
     });
 }
 
-std::optional<HttpRequest> parse_request(std::string_view buf) {
+std::optional<std::pair<HttpRequest, size_t>> parse_request(std::string_view buf) {
 	HttpRequest request;
 	constexpr int max_content_len {1000000};
 	
@@ -76,12 +76,14 @@ std::optional<HttpRequest> parse_request(std::string_view buf) {
 	if (content_length > max_content_len) return std::nullopt;
 
 	// receive rest of body
+	size_t consumed = header_end + 4;
 	if (content_length > 0) {
 		size_t body_start = header_end + 4;
 		size_t body_already_received = buf.size() - body_start;
 		if (content_length > body_already_received) return std::nullopt;
 
 		request.body = {buf.data() + body_start, content_length};
+		consumed += content_length;
 	}
 	request.method = {buf.data(), method_space};
 	request.version = {buf.data() + version_start, (version_end - version_start)};
@@ -93,7 +95,7 @@ std::optional<HttpRequest> parse_request(std::string_view buf) {
 		request.headers[header_name] = {buf.data() + f.value_start, f.value_len};
 	}
 
-	return request;
+	return std::pair{request, consumed};
 }
 
 void handle_request(const HttpRequest& req) {
@@ -110,12 +112,13 @@ void handle_client(const Socket& client, Router& router) {
 	char chunk[4096];
 	while (true) {
 		if (auto req = parse_request(buf)) { 
-			// TODO: erase consumed from buffer for multi requests
-			handle_request(*req); // print req for now
-			HttpResponse res = router.dispatch(*req);
+			auto& [request, consumed] = *req;
+			handle_request(request); // print req for now
+			HttpResponse res = router.dispatch(request);
 			std::string res_text = serialize_response(res);
 			send(client.fd(), res_text.data(), res_text.size(), 0);
-			break;
+			buf.erase(0, consumed);
+			continue;
 		}
 		ssize_t n = recv(client.fd(), chunk, sizeof(chunk), 0);
 		if (n <= 0) break;
@@ -146,6 +149,7 @@ std::string serialize_response(const HttpResponse& response) {
 	for (const auto& [key, value] : response.headers) {
 		output += key + ": " + value + "\r\n";
 	}
+	output += "Content-Length: " + std::to_string(response.body.size()) + "\r\n";
 	output += "\r\n";
 	return output + response.body;
 }

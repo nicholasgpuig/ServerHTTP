@@ -10,6 +10,5 @@ HttpResponse post_hi(const HttpRequest& req) {
 	res.status = 200;
 	res.body = "Hi " + std::string{req.body} + ", nice to meet you.\n";
 	res.headers["Content-Type"] = "text/plain";
-	res.headers["Content-Length"] = std::to_string(res.body.size());
 	return res;
 }
