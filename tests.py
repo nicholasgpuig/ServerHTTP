@@ -95,20 +95,123 @@ def test_404():
     print("\n=== Testing 404 ===")
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(("localhost", 8080))
-    
+
     print("\nGET /nonexistent:")
     headers, body = send_request(sock, "GET", "/nonexistent")
     print(f"Status: {headers.split(chr(13))[0]}")
     print(f"Body: {body}")
-    
+
     sock.close()
+
+def test_simple_get():
+    """Test a single simple GET request."""
+    print("\n=== Testing Simple GET ===")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect(("localhost", 8080))
+
+    headers, body = send_request(sock, "GET", "/hi")
+    status_line = headers.split("\r\n")[0]
+    print(f"Status: {status_line}")
+    assert "200" in status_line, f"Expected 200, got {status_line}"
+    print(f"Body: {body}")
+
+    sock.close()
+    print("✓ Simple GET passed")
+
+def test_malformed_requests():
+    """Test various malformed requests."""
+    print("\n=== Testing Malformed Requests ===")
+
+    malformed = [
+        ("Missing method", " /hi HTTP/1.1\r\nHost: localhost:8080\r\n\r\n"),
+        ("Missing path", "GET  HTTP/1.1\r\nHost: localhost:8080\r\n\r\n"),
+        ("Missing HTTP version", "GET /hi\r\nHost: localhost:8080\r\n\r\n"),
+        ("Invalid header (no colon)", "GET /hi HTTP/1.1\r\nHost localhost:8080\r\n\r\n"),
+        ("Incomplete request", "GET /hi HTTP/1.1\r\n"),  # no \r\n\r\n
+    ]
+
+    for name, request in malformed:
+        print(f"\n  Testing: {name}")
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            sock.connect(("localhost", 8080))
+            sock.sendall(request.encode())
+
+            # Try to receive something (server might close or timeout)
+            try:
+                response = sock.recv(1024)
+                if response:
+                    print(f"    → Got response (server handled gracefully)")
+                else:
+                    print(f"    → Connection closed (expected)")
+            except socket.timeout:
+                print(f"    → Timeout waiting for response (server might be waiting for more data)")
+
+            sock.close()
+        except Exception as e:
+            print(f"    → Error: {e}")
+
+def test_large_content_length():
+    """Test request with Content-Length that exceeds max."""
+    print("\n=== Testing Large Content-Length ===")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(2)
+    sock.connect(("localhost", 8080))
+
+    # Send a request claiming 10MB body (exceeds 1MB cap)
+    request = "POST /hi HTTP/1.1\r\nHost: localhost:8080\r\nContent-Length: 10485760\r\n\r\n"
+    sock.sendall(request.encode())
+
+    try:
+        response = sock.recv(1024)
+        if response:
+            status = response.decode(errors="ignore").split("\r\n")[0]
+            print(f"Status: {status}")
+            # Server should either reject or hang waiting for body
+        else:
+            print("Connection closed")
+    except socket.timeout:
+        print("Timeout (server waiting for oversized body)")
+
+    sock.close()
+    print("✓ Large Content-Length handled")
+
+def test_multiple_headers():
+    """Test request with multiple headers."""
+    print("\n=== Testing Multiple Headers ===")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect(("localhost", 8080))
+
+    request = (
+        "GET /hi HTTP/1.1\r\n"
+        "Host: localhost:8080\r\n"
+        "User-Agent: TestClient/1.0\r\n"
+        "Accept: text/plain\r\n"
+        "Custom-Header: some-value\r\n"
+        "\r\n"
+    )
+    sock.sendall(request.encode())
+    headers, body = send_request(sock, "", "", "")
+    status = headers.split("\r\n")[0]
+    print(f"Status: {status}")
+    assert "200" in status, f"Expected 200, got {status}"
+
+    sock.close()
+    print("✓ Multiple headers passed")
 
 if __name__ == "__main__":
     try:
+        test_simple_get()
         test_keep_alive()
         test_post()
         test_404()
-        test_pipelining()  # uncomment once keep-alive is solid
+        test_multiple_headers()
+        test_large_content_length()
+        test_malformed_requests()
+        test_pipelining()
+        print("\n" + "="*50)
+        print("All tests completed!")
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
