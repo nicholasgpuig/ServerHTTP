@@ -1,6 +1,7 @@
 #include "socket.h"
 #include "ThreadPool.h"
 #include "handle.h"
+#include "Router.h"
 #include <iostream>
 #include <unordered_map>
 #include <optional>
@@ -8,6 +9,7 @@
 #include <vector>
 #include <algorithm>
 #include <cctype>
+#include <string_view>
 
 
 bool iequals(std::string_view a, std::string_view b) {
@@ -102,18 +104,48 @@ void handle_request(const HttpRequest& req) {
 		std::cout << req.body << std::endl;
 }
 
-void handle_client(const Socket& client) {
+void handle_client(const Socket& client, Router& router) {
     std::string buf;
 	buf.reserve(4096);
 	char chunk[4096];
 	while (true) {
 		if (auto req = parse_request(buf)) { 
 			// TODO: erase consumed from buffer for multi requests
-			handle_request(*req);
+			handle_request(*req); // print req for now
+			HttpResponse res = router.dispatch(*req);
+			std::string res_text = serialize_response(res);
+			send(client.fd(), res_text.data(), res_text.size(), 0);
 			break;
 		}
 		ssize_t n = recv(client.fd(), chunk, sizeof(chunk), 0);
 		if (n <= 0) break;
 		buf.append(chunk, n);
 	}
+}
+
+std::string get_code_message(int code) {
+	switch (code)
+	{
+	case 200:
+		return "OK";
+	case 201:
+		return "Created";
+	case 302:
+		return "Redirect";
+	case 404:
+		return "Not Found";
+	case 500:
+		return "Internal Server Error";
+	default:
+		return "";
+	}
+}
+
+std::string serialize_response(const HttpResponse& response) {
+	std::string output = "HTTP/1.1 " + std::to_string(response.status) + " " + get_code_message(response.status) + "\r\n";
+	for (const auto& [key, value] : response.headers) {
+		output += key + ": " + value + "\r\n";
+	}
+	output += "\r\n";
+	return output + response.body;
 }

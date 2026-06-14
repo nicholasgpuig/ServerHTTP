@@ -1,6 +1,7 @@
 #pragma once
 #include "socket.h"
 #include "handle.h"
+#include "Router.h"
 #include <array>
 #include <queue>
 #include <thread>
@@ -14,10 +15,11 @@ private:
     std::queue<Socket> q;
     std::mutex m;
     std::condition_variable cv;
+    Router& router;
     
 public:
 
-    ThreadPool() {
+    ThreadPool(Router& router_) : router(router_) {
         for (int i = 0; i < N; ++i) {
             workers[i] = std::jthread([this](std::stop_token st) -> void {
                 while (!st.stop_requested()) {
@@ -33,7 +35,7 @@ public:
                         }
                     }
                     if (sock) {
-                        handle_client(sock);
+                        handle_client(sock, router);
                     }
                 }
             });

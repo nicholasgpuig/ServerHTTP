@@ -3,20 +3,23 @@
 
 #include "socket.h"
 #include "ThreadPool.h"
-
+#include "Router.h"
+#include "routes.h"
 
 int main()
 {
+	constexpr int NUM_THREADS = 5;
 	ServerSocket server = ServerSocket(8080);
 	if (!server) { return 1; }
 
-	ThreadPool<5> threadpool;
+	Router router;
+	router.get("/hi", get_hi)
+		.post("/hi", post_hi);
+
+	ThreadPool<NUM_THREADS> threadpool(router);
 	while (true) {
 		threadpool.add(server.accept());
 	}
 
-	// const char* response = "Hello\n";
-
-    // send(client.fd(), response, static_cast<size_t>(7), 0);
 	return 0;
 }
