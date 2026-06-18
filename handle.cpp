@@ -1,5 +1,4 @@
 #include "socket.h"
-#include "ThreadPool.h"
 #include "handle.h"
 #include "Router.h"
 #include <iostream>
@@ -106,25 +105,25 @@ void handle_request(const HttpRequest& req) {
 		std::cout << req.body << std::endl;
 }
 
-void handle_client(const Socket& client, Router& router) {
-    std::string buf;
-	buf.reserve(4096);
-	char chunk[4096];
-	while (true) {
-		if (auto req = parse_request(buf)) { 
-			auto& [request, consumed] = *req;
-			handle_request(request); // print req for now
-			HttpResponse res = router.dispatch(request);
-			std::string res_text = serialize_response(res);
-			send(client.fd(), res_text.data(), res_text.size(), 0);
-			buf.erase(0, consumed);
-			continue;
-		}
-		ssize_t n = recv(client.fd(), chunk, sizeof(chunk), 0);
-		if (n <= 0) break;
-		buf.append(chunk, n);
-	}
-}
+// void handle_client(const Socket& client, Router& router) {
+//     std::string buf;
+// 	buf.reserve(4096);
+// 	char chunk[4096];
+// 	while (true) {
+// 		if (auto req = parse_request(buf)) { 
+// 			auto& [request, consumed] = *req;
+
+// 			HttpResponse res = router.dispatch(request);
+// 			std::string res_text = serialize_response(res);
+// 			send(client.fd(), res_text.data(), res_text.size(), 0);
+// 			buf.erase(0, consumed);
+// 			continue;
+// 		}
+// 		ssize_t n = recv(client.fd(), chunk, sizeof(chunk), 0);
+// 		if (n <= 0) break;
+// 		buf.append(chunk, n);
+// 	}
+// }
 
 std::string get_code_message(int code) {
 	switch (code)

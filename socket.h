@@ -34,5 +34,6 @@ public:
     ServerSocket& operator=(ServerSocket&&) = delete;
 
     [[nodiscard]] Socket accept() const;
+    [[nodiscard]] int fd() const noexcept { return fd_; }
     explicit operator bool() const noexcept { return fd_ != -1; }
 };

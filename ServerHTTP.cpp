@@ -2,24 +2,22 @@
 //
 
 #include "socket.h"
-#include "ThreadPool.h"
 #include "Router.h"
 #include "routes.h"
+#include "EpollServer.h"
 
 int main()
 {
-	constexpr int NUM_THREADS = 5;
-	ServerSocket server = ServerSocket(8080);
+	constexpr int PORT = 8080;
+	ServerSocket server = ServerSocket(PORT);
 	if (!server) { return 1; }
 
 	Router router;
 	router.get("/hi", get_hi)
 		.post("/hi", post_hi);
 
-	ThreadPool<NUM_THREADS> threadpool(router);
-	while (true) {
-		threadpool.add(server.accept());
-	}
+	EpollServer epoll_server(router);
+	epoll_server.run(server);
 
 	return 0;
 }
